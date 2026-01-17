@@ -1,0 +1,105 @@
+# DS DeFi Core - Docker Compose
+# Complete local development environment
+
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # Core API Server
+  # ===========================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://dsdefi:sovereign@postgres:5432/dsdefi
+      - PORT=4000
+      - LOG_LEVEL=debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:ro
+      - ./api:/app/api:ro
+    restart: unless-stopped
+    networks:
+      - dsdefi-network
+
+  # ===========================================================================
+  # PostgreSQL Database
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: dsdefi
+      POSTGRES_PASSWORD: sovereign
+      POSTGRES_DB: dsdefi
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dsdefi -d dsdefi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - dsdefi-network
+
+  # ===========================================================================
+  # Redis (for caching & pub/sub)
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - dsdefi-network
+
+  # ===========================================================================
+  # Adminer (Database UI)
+  # ===========================================================================
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - dsdefi-network
+
+  # ===========================================================================
+  # GraphQL Playground (Apollo Studio alternative)
+  # ===========================================================================
+  # Access via: http://localhost:4000/graphql in development mode
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  dsdefi-network:
+    driver: bridge
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
