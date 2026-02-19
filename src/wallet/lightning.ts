@@ -1,12 +1,20 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
+import * as https from 'https';
 import type { LNDConfig, Invoice, Payment, ChannelBalance, DecodedInvoice } from './types.js';
 
 export class LightningWallet {
   private config: LNDConfig;
+  private httpsAgent?: https.Agent;
 
   constructor(config: LNDConfig) {
     this.config = config;
+    if (config.certPath) {
+      this.httpsAgent = new https.Agent({
+        ca: fs.readFileSync(config.certPath),
+        rejectUnauthorized: true,
+      });
+    }
   }
 
   private async request<T>(
@@ -24,6 +32,8 @@ export class LightningWallet {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      // @ts-ignore - https.Agent compatibility with fetch
+      agent: this.httpsAgent,
     });
 
     if (!response.ok) {
@@ -34,7 +44,7 @@ export class LightningWallet {
     return response.json() as T;
   }
 
-  async createInvoice(amount: number, memo: string): Promise<Invoice> {
+  async createInvoice(amount: number, memo: string, expiry: number = 3600): Promise<Invoice> {
     const response = await this.request<{
       payment_request: string;
       add_index: string;
@@ -42,7 +52,7 @@ export class LightningWallet {
     }>('POST', '/v1/invoices', {
       value: amount,
       memo,
-      expiry: 3600,
+      expiry,
     });
 
     return {
@@ -73,8 +83,8 @@ export class LightningWallet {
     }>('GET', '/v1/balance/channel');
 
     return {
-      balance: parseInt(response.balance, 10),
-      pendingOpenBalance: parseInt(response.pending_open_balance, 10),
+      balance: BigInt(response.balance),
+      pendingOpenBalance: BigInt(response.pending_open_balance),
     };
   }
 
@@ -104,7 +114,7 @@ export class LightningWallet {
 
   async subscribeToPayments(): Promise<AsyncIterator<{
     paymentHash: string;
-    amount: number;
+    amount: bigint;
     status: 'settled' | 'failed' | 'in_flight';
   }>> {
     const url = `${this.config.restUrl}/v1/payments?indexify=true`;
@@ -124,12 +134,12 @@ export class LightningWallet {
     
     const iterator: AsyncIterator<{
       paymentHash: string;
-      amount: number;
+      amount: bigint;
       status: 'settled' | 'failed' | 'in_flight';
     }> = {
       next: async (): Promise<IteratorResult<{
         paymentHash: string;
-        amount: number;
+        amount: bigint;
         status: 'settled' | 'failed' | 'in_flight';
       }>> => {
         while (true) {
@@ -151,7 +161,7 @@ export class LightningWallet {
                   done: false,
                   value: {
                     paymentHash: payment.payment_hash,
-                    amount: parseInt(payment.value_sat, 10),
+                    amount: BigInt(payment.value_sat),
                     status: payment.state,
                   },
                 };

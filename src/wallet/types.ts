@@ -16,8 +16,8 @@ export interface Payment {
 }
 
 export interface ChannelBalance {
-  balance: number;
-  pendingOpenBalance: number;
+  balance: bigint;
+  pendingOpenBalance: bigint;
 }
 
 export interface DecodedInvoice {
