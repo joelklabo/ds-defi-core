@@ -10,12 +10,26 @@ export function createDbMock() {
 
   const db = {
     select: vi.fn(() => {
+      let consumed = false;
+      let result: unknown[] = [];
+      const resolveResult = () => {
+        if (!consumed) {
+          consumed = true;
+          result = (selectResponses.shift() as any) ?? [];
+        }
+        return Promise.resolve(result as any);
+      };
+
       const chain: Record<string, any> = {
         from: vi.fn(() => chain),
-        where: vi.fn(() => Promise.resolve((selectResponses.shift() as any) ?? [])),
+        where: vi.fn(() => chain),
         limit: vi.fn(() => chain),
         offset: vi.fn(() => chain),
-        orderBy: vi.fn(() => Promise.resolve((selectResponses.shift() as any) ?? [])),
+        orderBy: vi.fn(() => resolveResult()),
+        then: (onFulfilled: (value: unknown[]) => unknown, onRejected?: (reason: any) => unknown) =>
+          resolveResult().then(onFulfilled, onRejected),
+        catch: (onRejected: (reason: any) => unknown) => resolveResult().catch(onRejected),
+        finally: (onFinally: () => void) => resolveResult().finally(onFinally),
       };
       return chain;
     }),
