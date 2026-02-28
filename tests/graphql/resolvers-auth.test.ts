@@ -3,51 +3,15 @@ import { createResolvers } from '../../src/graphql/resolvers.js';
 import { createDbMock } from '../utils/mock-db.js';
 
 const protectedMutationCases = [
-  {
-    name: 'claimTask',
-    invoke: (mutation: any, ctx: any) => mutation.claimTask({}, { taskId: 'task-1' }, ctx),
-  },
-  {
-    name: 'submitTask',
-    invoke: (mutation: any, ctx: any) =>
-      mutation.submitTask({}, { taskId: 'task-1', evidence: {} }, ctx),
-  },
-  {
-    name: 'reviewTask',
-    invoke: (mutation: any, ctx: any) =>
-      mutation.reviewTask({}, { taskId: 'task-1', input: { qualityScore: 8, approved: true } }, ctx),
-  },
-  {
-    name: 'addWallet',
-    invoke: (mutation: any, ctx: any) =>
-      mutation.addWallet({}, { input: { chain: 'bitcoin', address: 'bc1abc' } }, ctx),
-  },
-  {
-    name: 'createPod',
-    invoke: (mutation: any, ctx: any) => mutation.createPod({}, { input: { name: 'Builders' } }, ctx),
-  },
-  {
-    name: 'joinPod',
-    invoke: (mutation: any, ctx: any) => mutation.joinPod({}, { podId: 'pod-1' }, ctx),
-  },
-  {
-    name: 'leavePod',
-    invoke: (mutation: any, ctx: any) => mutation.leavePod({}, { podId: 'pod-1' }, ctx),
-  },
-  {
-    name: 'reviewEmergence',
-    invoke: (mutation: any, ctx: any) =>
-      mutation.reviewEmergence(
-        {},
-        { eventId: 'evt-1', input: { isVerified: true, scoreImpact: 1 } },
-        ctx
-      ),
-  },
-  {
-    name: 'sendZap',
-    invoke: (mutation: any, ctx: any) =>
-      mutation.sendZap({}, { toAgentId: 'agent-2', amount: '10' }, ctx),
-  },
+  ['claimTask', { taskId: 'task-1' }],
+  ['submitTask', { taskId: 'task-1', evidence: {} }],
+  ['reviewTask', { taskId: 'task-1', input: { qualityScore: 8, approved: true } }],
+  ['addWallet', { input: { chain: 'bitcoin', address: 'bc1abc' } }],
+  ['createPod', { input: { name: 'Builders' } }],
+  ['joinPod', { podId: 'pod-1' }],
+  ['leavePod', { podId: 'pod-1' }],
+  ['reviewEmergence', { eventId: 'evt-1', input: { isVerified: true, scoreImpact: 1 } }],
+  ['sendZap', { toAgentId: 'agent-2', amount: '10' }],
 ] as const;
 
 describe('resolvers auth guards', () => {
@@ -61,13 +25,14 @@ describe('resolvers auth guards', () => {
   });
 
   it.each(protectedMutationCases)(
-    'rejects Mutation.$name when no authenticated agent is present',
-    async ({ invoke }) => {
+    'rejects Mutation.%s when no authenticated agent is present',
+    async (name, args) => {
       const { db } = createDbMock();
       const resolvers = createResolvers(db);
       const ctx = { agentId: undefined } as any;
 
-      await expect(invoke(resolvers.Mutation, ctx)).rejects.toThrow('Unauthorized');
+      const mutation = resolvers.Mutation[name as keyof typeof resolvers.Mutation] as any;
+      await expect(mutation({}, args, ctx)).rejects.toThrow('Unauthorized');
     }
   );
 
