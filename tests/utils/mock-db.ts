@@ -25,7 +25,7 @@ export function createDbMock() {
         where: vi.fn(() => chain),
         limit: vi.fn(() => chain),
         offset: vi.fn(() => chain),
-        orderBy: vi.fn(() => resolveResult()),
+        orderBy: vi.fn(() => chain),
         then: (onFulfilled: (value: unknown[]) => unknown, onRejected?: (reason: any) => unknown) =>
           resolveResult().then(onFulfilled, onRejected),
         catch: (onRejected: (reason: any) => unknown) => resolveResult().catch(onRejected),
