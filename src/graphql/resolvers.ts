@@ -376,6 +376,8 @@ export function createResolvers(db: DB) {
           .where(eq(tasks.id, taskId))
           .returning();
 
+        if (!reviewed) throw new Error('Task not found');
+
         // If approved, create payment transaction
         if (input.approved && reviewed.claimedById) {
           await db.insert(transactions).values({
