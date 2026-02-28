@@ -550,6 +550,8 @@ export function createResolvers(db: DB) {
           .where(eq(emergenceEvents.id, eventId))
           .returning();
 
+        if (!reviewed) throw new Error('Emergence event not found');
+
         // Update agent's emergence score if verified
         if (input.isVerified && input.scoreImpact) {
           await db
